@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/wallet-api
-  JAVA_VERSION: "17"
+  JAVA_VERSION: "21"
 
 jobs:
   # ── Job 1: Test & Quality Gate ─────────────────────────────────────────────
