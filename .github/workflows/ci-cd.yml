@@ -9,10 +9,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  JAVA_VERSION: '21'
+  JAVA_VERSION: "17"
 
 jobs:
-
   # ── Job 1: Test & Quality Gate ─────────────────────────────────────────────
   test:
     name: Test & Quality Gate
@@ -34,7 +33,7 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()   # Upload even if tests fail — critical for debugging
+        if: always() # Upload even if tests fail — critical for debugging
         with:
           name: test-results
           path: target/surefire-reports/
@@ -65,7 +64,7 @@ jobs:
           config: >-
             p/java
             p/owasp-top-ten
-        continue-on-error: true  # Don't fail the pipeline on first run
+        continue-on-error: true # Don't fail the pipeline on first run
 
       # Build the image locally for scanning — don't push until it's clean
       - name: Build Docker image for scanning
@@ -77,9 +76,9 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
           format: table
-          exit-code: '1'           # Fail the pipeline on HIGH/CRITICAL CVEs
+          exit-code: "1" # Fail the pipeline on HIGH/CRITICAL CVEs
           severity: HIGH,CRITICAL
-          ignore-unfixed: true     # Don't fail on CVEs with no fix available
+          ignore-unfixed: true # Don't fail on CVEs with no fix available
 
       - name: Upload Trivy results
         uses: actions/upload-artifact@v4
@@ -97,7 +96,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
-      packages: write   # Required to push to GitHub Container Registry
+      packages: write # Required to push to GitHub Container Registry
 
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
@@ -197,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-staging
     environment:
-      name: production     # This environment requires manual approval in GitHub
+      name: production # This environment requires manual approval in GitHub
       url: https://api.muigo.com
     steps:
       - name: Checkout code
