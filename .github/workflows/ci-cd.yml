@@ -54,7 +54,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-
+      - name: Make Maven wrapper executable
+        run: chmod +x ./mvnw
       - name: Build JAR (needed for image scan)
         run: ./mvnw package -DskipTests -q
 
@@ -113,7 +114,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-
+      - name: Make Maven wrapper executable
+        run: chmod +x ./mvnw
       - name: Build JAR
         run: ./mvnw package -DskipTests -q
 
