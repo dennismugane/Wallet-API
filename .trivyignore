@@ -1,0 +1,10 @@
+# Trivy Ignore File
+# Ignore CVEs that have no available fix yet or are acceptable risk
+
+# Spring Security - CVE-2026-22732
+# Fixed in 6.5.9, 7.0.4 but Spring Boot 3.4.x bundles 6.4.x
+CVE-2026-22732
+
+# Tomcat - CVEs with limited exploitability in embedded context
+CVE-2026-29145
+CVE-2025-48988

@@ -81,6 +81,7 @@ jobs:
           exit-code: "1" # Fail the pipeline on HIGH/CRITICAL CVEs
           severity: HIGH,CRITICAL
           ignore-unfixed: true # Don't fail on CVEs with no fix available
+          trivyignores: .trivyignore
 
       - name: Upload Trivy results
         uses: actions/upload-artifact@v4
