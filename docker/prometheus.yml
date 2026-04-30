@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'muigo-wallet'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['app:8080']
+    # The wallet API — key metrics to watch:
+    # http_server_requests_seconds  → request latency (p95, p99)
+    # http_server_requests_total    → request rate and error rate
+    # hikaricp_connections_active   → DB connection pool pressure
+    # jvm_memory_used_bytes         → heap/non-heap usage

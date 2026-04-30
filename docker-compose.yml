@@ -1,0 +1,105 @@
+version: "3.9"
+
+# Local development stack.
+# Run: docker compose up -d
+# API:       http://localhost:8080
+# Swagger:   http://localhost:8080/swagger-ui.html
+# pgAdmin:   http://localhost:5050  (admin@muigo.com / admin)
+# Grafana:   http://localhost:3000  (admin / admin)
+# Prometheus:http://localhost:9090
+
+services:
+
+  # ── Application ─────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      target: runtime
+    container_name: muigo-wallet-api
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/wallet_db
+      DB_USERNAME: wallet_user
+      DB_PASSWORD: wallet_pass
+      JWT_SECRET: local-dev-secret-key-replace-in-prod-min-32-chars
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wallet-net
+    restart: unless-stopped
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: muigo-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: wallet_db
+      POSTGRES_USER: wallet_user
+      POSTGRES_PASSWORD: wallet_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wallet_user -d wallet_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wallet-net
+
+  # ── pgAdmin (database UI) ────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: muigo-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@muigo.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - postgres
+    networks:
+      - wallet-net
+
+  # ── Prometheus (metrics scraping) ────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: muigo-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    networks:
+      - wallet-net
+
+  # ── Grafana (dashboards) ─────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: muigo-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - wallet-net
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  wallet-net:
+    driver: bridge
