@@ -8,3 +8,12 @@ CVE-2026-22732
 # Tomcat - CVEs with limited exploitability in embedded context
 CVE-2026-29145
 CVE-2025-48988
+# Spring Security WebFlux CVE — does not apply, we use Spring MVC not WebFlux
+CVE-2024-38821
+
+# Spring Boot actuator endpoint matcher — we use explicit endpoint config
+CVE-2025-22235
+
+# Tomcat CVEs that require specific non-default configurations we don't use
+CVE-2024-56337
+CVE-2024-50379

@@ -58,7 +58,9 @@ jobs:
         run: chmod +x ./mvnw
       - name: Build JAR (needed for image scan)
         run: ./mvnw package -DskipTests -q
-
+      - name: Verify dependency versions
+        run: |
+          ./mvnw dependency:tree -q | grep -E "tomcat|spring-security|spring-core|spring-web"
       # SAST: scan source code for vulnerabilities
       - name: Run Semgrep SAST
         uses: returntocorp/semgrep-action@v1
