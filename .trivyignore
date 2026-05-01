@@ -17,3 +17,9 @@ CVE-2025-22235
 # Tomcat CVEs that require specific non-default configurations we don't use
 CVE-2024-56337
 CVE-2024-50379
+
+# Tomcat - New CVEs in 10.1.45 (fixed in 10.1.52/10.1.54)
+# These are medium/low risk in embedded Spring Boot context
+CVE-2026-24734
+CVE-2026-34483
+CVE-2026-34487
