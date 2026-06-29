@@ -9,7 +9,6 @@ version: "3.9"
 # Prometheus:http://localhost:9090
 
 services:
-
   # ── Application ─────────────────────────────────────────────────────────────
   app:
     build:
@@ -19,10 +18,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/wallet_db
-      DB_USERNAME: wallet_user
-      DB_PASSWORD: wallet_pass
-      JWT_SECRET: local-dev-secret-key-replace-in-prod-min-32-chars
+      DB_URL: jdbc:postgresql://${RDS_ENDPOINT}/${POSTGRES_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,8 +73,8 @@ services:
       - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=15d'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
     networks:
       - wallet-net
 

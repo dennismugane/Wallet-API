@@ -1,0 +1,38 @@
+variable "environment" {}
+variable "db_password" { sensitive = true }
+variable "jwt_secret" { sensitive = true }
+
+# ── DB Password Secret ────────────────────────────────────────────────────────
+
+resource "aws_secretsmanager_secret" "db_password" {
+  name                    = "wallet-${var.environment}/db-password"
+  recovery_window_in_days = 7
+
+  tags = { Name = "wallet-${var.environment}-db-password" }
+}
+
+resource "aws_secretsmanager_secret_version" "db_password" {
+  secret_id       = aws_secretsmanager_secret.db_password.id
+  secret_string   = var.db_password
+}
+
+# ── JWT Secret ──────────────────────────────────────────────────────────────────
+
+resource "aws_secretsmanager_secret" "jwt_secret" {
+  name                    = "wallet-${var.environment}/jwt-secret"
+  recovery_window_in_days = 7
+
+  tags = { Name = "wallet-${var.environment}-jwt-secret" }
+}
+
+resource "aws_secretsmanager_secret_version" "jwt_secret" {
+  secret_id       = aws_secretsmanager_secret.jwt_secret.id
+  secret_string   = var.jwt_secret
+}
+
+# ── Outputs ─────────────────────────────────────────────────────────────────────
+
+output "db_password_secret_arn" { value = aws_secretsmanager_secret.db_password.arn }
+output "db_password_secret_name" { value = aws_secretsmanager_secret.db_password.name }
+output "jwt_secret_arn" { value = aws_secretsmanager_secret.jwt_secret.arn }
+output "jwt_secret_name" { value = aws_secretsmanager_secret.jwt_secret.name }
