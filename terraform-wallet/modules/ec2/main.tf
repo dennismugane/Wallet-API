@@ -11,7 +11,6 @@ variable "db_username" {}
 variable "db_password_secret_name" {}
 variable "jwt_secret_name" {}
 variable "docker_hub_username" {}
-variable "docker_hub_password" {}
 variable "image_tag" {}
 
 data "aws_ami" "amazon_linux" {
@@ -148,7 +147,6 @@ resource "aws_instance" "wallet" {
     DB_PASSWORD            = var.db_password_secret_name  # Will be fetched from Secrets Manager
     JWT_SECRET             = var.jwt_secret_name          # Will be fetched from Secrets Manager
     DOCKER_HUB_USERNAME    = var.docker_hub_username
-    DOCKER_HUB_PASSWORD    = var.docker_hub_password
     DOCKER_IMAGE           = "${var.docker_hub_username}/wallet"
     IMAGE_TAG              = var.image_tag
   }))

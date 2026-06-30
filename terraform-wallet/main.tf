@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   # Remote state: S3 bucket + DynamoDB lock table
@@ -50,7 +54,6 @@ module "vpc" {
 module "secrets" {
   source      = "./modules/secrets"
   environment = var.environment
-  db_password = var.db_password
   jwt_secret  = var.jwt_secret
 }
 
@@ -70,7 +73,7 @@ module "rds" {
   eks_security_group  = module.eks.eks_nodes_security_group_id
   db_name             = var.db_name
   db_username         = var.db_username
-  db_password         = var.db_password
+  db_password         = module.secrets.db_password
   db_instance_class   = var.db_instance_class
 }
 
@@ -89,7 +92,6 @@ module "ec2" {
   db_password_secret_name = module.secrets.db_password_secret_name
   jwt_secret_name         = module.secrets.jwt_secret_name
   docker_hub_username     = var.docker_hub_username
-  docker_hub_password     = var.docker_hub_password
   image_tag               = var.image_tag
 }
 

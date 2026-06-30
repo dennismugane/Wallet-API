@@ -41,12 +41,6 @@ variable "docker_hub_username" {
   type        = string
 }
 
-variable "docker_hub_password" {
-  description = "Docker Hub password/token for authentication"
-  type        = string
-  sensitive   = true
-}
-
 variable "image_tag" {
   description = "Docker image tag to deploy (e.g. latest, v1.0.0, or git SHA)"
   type        = string
@@ -65,12 +59,6 @@ variable "db_username" {
   description = "Master username for the database"
   type        = string
   default     = "admin"
-}
-
-variable "db_password" {
-  description = "Master password for the database (use TF_VAR_db_password env var)"
-  type        = string
-  sensitive   = true
 }
 
 variable "db_instance_class" {

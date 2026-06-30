@@ -13,9 +13,6 @@ systemctl enable docker
 useradd -m wallet || true
 usermod -aG docker wallet || true
 
-# Log Docker in (for pulling from Docker Hub)
-docker login -u "${DOCKER_HUB_USERNAME}" -p "${DOCKER_HUB_PASSWORD}"
-
 # Fetch secrets from AWS Secrets Manager
 DB_PASSWORD=$(aws secretsmanager get-secret-value \
   --secret-id "${DB_PASSWORD}" \
