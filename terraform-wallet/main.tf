@@ -13,13 +13,12 @@ terraform {
   }
 
   # Remote state: S3 bucket + DynamoDB lock table
-  # Reusing ecommerce S3 bucket and DynamoDB table for cost efficiency
   backend "s3" {
-    bucket         = "dennism-terraform-state-dev-2026"     # shared with ecommerce
-    key            = "wallet/prod/terraform.tfstate"        # unique path for wallet
+    bucket         = "wallet-terraform-state-dev-2026"
+    key            = "wallet/prod/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "ecommerce-tfstate-lock"              # shared with ecommerce
+    dynamodb_table = "wallet-tfstate-lock"
   }
 }
 
@@ -33,6 +32,11 @@ provider "aws" {
       ManagedBy   = "terraform"
     }
   }
+}
+
+resource "aws_key_pair" "wallet_key" {
+  key_name   = var.key_pair_name
+  public_key = file(var.key_pair_public_key_path)
 }
 
 # ── Modules ────────────────────────────────────────────────────────────────────
@@ -79,6 +83,7 @@ module "ec2" {
   key_name                = var.key_pair_name
   iam_instance_profile    = module.iam.ec2_instance_profile_name
   rds_endpoint            = module.rds.rds_endpoint
+  aws_region              = var.aws_region
   db_name                 = var.db_name
   db_username             = var.db_username
   db_password_secret_name = module.secrets.db_password_secret_name

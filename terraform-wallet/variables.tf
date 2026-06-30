@@ -25,8 +25,15 @@ variable "ec2_instance_type" {
 }
 
 variable "key_pair_name" {
-  description = "Name of an existing EC2 key pair for SSH access"
+  description = "Name of the EC2 key pair to use for SSH access"
   type        = string
+  default     = "wallet-key"
+}
+
+variable "key_pair_public_key_path" {
+  description = "Local path to the SSH public key file to import into AWS as an EC2 key pair"
+  type        = string
+  default     = "wallet-key.pub"
 }
 
 variable "docker_hub_username" {

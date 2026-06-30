@@ -5,12 +5,13 @@ variable "instance_type" {}
 variable "key_name" {}
 variable "iam_instance_profile" {}
 variable "rds_endpoint" {}
+variable "aws_region" {}
 variable "db_name" {}
 variable "db_username" {}
 variable "db_password_secret_name" {}
 variable "jwt_secret_name" {}
 variable "docker_hub_username" {}
-variable "docker_hub_password" { sensitive = true }
+variable "docker_hub_password" {}
 variable "image_tag" {}
 
 data "aws_ami" "amazon_linux" {
@@ -143,6 +144,7 @@ resource "aws_instance" "wallet" {
     DB_HOST                = local.db_host
     DB_NAME                = var.db_name
     DB_USERNAME            = var.db_username
+    AWS_REGION             = var.aws_region
     DB_PASSWORD            = var.db_password_secret_name  # Will be fetched from Secrets Manager
     JWT_SECRET             = var.jwt_secret_name          # Will be fetched from Secrets Manager
     DOCKER_HUB_USERNAME    = var.docker_hub_username

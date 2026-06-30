@@ -104,8 +104,8 @@ resource "aws_eks_node_group" "wallet" {
     max_unavailable_percentage = 25
   }
 
-  vpc_config {
-    security_groups = [aws_security_group.eks_nodes.id]
+  remote_access {
+    ec2_ssh_key = var.environment
   }
 
   tags = { Name = "wallet-${var.environment}-node-group" }
