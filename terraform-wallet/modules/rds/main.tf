@@ -1,8 +1,6 @@
 variable "environment" {}
 variable "vpc_id" {}
 variable "private_subnet_ids" {}
-variable "ec2_security_group" {}
-variable "eks_security_group" {}
 variable "db_name" {}
 variable "db_username" {}
 variable "db_password" { sensitive = true }
@@ -28,7 +26,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [var.ec2_security_group, var.eks_security_group]
+    
   }
 
   egress {
@@ -65,7 +63,7 @@ resource "aws_db_parameter_group" "postgres" {
 resource "aws_db_instance" "main" {
   identifier              = "wallet-${var.environment}-postgres"
   engine                  = "postgres"
-  engine_version          = "15.3"
+  engine_version          = "15.7"
   instance_class          = var.db_instance_class
   allocated_storage       = 20
   max_allocated_storage   = 100         # auto-scaling storage up to 100 GB
@@ -80,7 +78,7 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.rds.id]
   parameter_group_name   = aws_db_parameter_group.postgres.name
 
-  backup_retention_period  = 7
+  backup_retention_period  = 0
   backup_window            = "03:00-04:00"
   maintenance_window       = "sun:04:00-sun:05:00"
   deletion_protection      = true        # prevents accidental destroy

@@ -6,13 +6,16 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/wallet-api
   JAVA_VERSION: "21"
 
 jobs:
-  # ── Job 1: Test & Quality Gate ─────────────────────────────────────────────
   test:
     name: Test & Quality Gate
     runs-on: ubuntu-latest
@@ -25,21 +28,21 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-          # Cache Maven dependencies between runs — saves ~2min per run
           cache: maven
+
       - name: Make Maven wrapper executable
         run: chmod +x ./mvnw
+
       - name: Run tests
         run: ./mvnw test -q
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always() # Upload even if tests fail — critical for debugging
+        if: always()
         with:
           name: test-results
           path: target/surefire-reports/
 
-  # ── Job 2: Security Scan ────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -54,37 +57,37 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
+
       - name: Make Maven wrapper executable
         run: chmod +x ./mvnw
-      - name: Build JAR (needed for image scan)
+
+      - name: Build JAR
         run: ./mvnw package -DskipTests -q
+
       - name: Verify dependency versions
         run: |
-          # grep returns exit code 1 when no matches found — prevent failure
           ./mvnw dependency:tree -q | grep -E "tomcat|spring-security|spring-core|spring-web" || true
           echo "Dependency check complete"
-      # SAST: scan source code for vulnerabilities
+
       - name: Run Semgrep SAST
         uses: returntocorp/semgrep-action@v1
         with:
           config: >-
             p/java
             p/owasp-top-ten
-        continue-on-error: true # Don't fail the pipeline on first run
+        continue-on-error: true
 
-      # Build the image locally for scanning — don't push until it's clean
       - name: Build Docker image for scanning
         run: docker build -t ${{ env.IMAGE_NAME }}:scan .
 
-      # Container image scan: check for known CVEs in base image and dependencies
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
           format: table
-          exit-code: "1" # Fail the pipeline on HIGH/CRITICAL CVEs
+          exit-code: "1"
           severity: HIGH,CRITICAL
-          ignore-unfixed: true # Don't fail on CVEs with no fix available
+          ignore-unfixed: true
           trivyignores: .trivyignore
 
       - name: Upload Trivy results
@@ -94,8 +97,6 @@ jobs:
           name: trivy-results
           path: trivy-results.sarif
 
-  # ── Job 3: Build & Push Container Image ────────────────────────────────────
-  # Only runs on pushes to main (not on PRs)
   build-and-push:
     name: Build & Push Image
     runs-on: ubuntu-latest
@@ -103,12 +104,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
-      packages: write # Required to push to GitHub Container Registry
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-tag: ${{ steps.meta.outputs.tags }}
-
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -119,16 +115,16 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
+
       - name: Make Maven wrapper executable
         run: chmod +x ./mvnw
+
       - name: Build JAR
         run: ./mvnw package -DskipTests -q
 
-      # Set up Docker Buildx for multi-platform builds and advanced caching
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Authenticate to GitHub Container Registry using OIDC (no stored secrets)
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -136,9 +132,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Generate image tags:
-      # - latest (for main branch)
-      # - git SHA (immutable tag for pinning and rollbacks)
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -148,9 +141,7 @@ jobs:
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # Build and push with layer caching — only changed layers are pushed
       - name: Build and push Docker image
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -160,74 +151,60 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── Job 4: Deploy to Staging ────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to Staging
+  create-namespace:
+    name: Create Kubernetes Namespace
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment:
-      name: staging
-      url: https://staging-api.muigo.com
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Configure kubectl to point at the staging cluster
-      - name: Configure kubectl
-        uses: azure/k8s-set-context@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # Rolling update — updates the image tag in the deployment.
-      # K8s performs the rollout respecting maxUnavailable/maxSurge settings.
-      - name: Deploy to staging
+      - name: Update kubeconfig for EKS
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
-          kubectl set image deployment/muigo-wallet muigo-wallet=$IMAGE -n default
-          kubectl rollout status deployment/muigo-wallet -n default --timeout=120s
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
-      # Smoke test: hit the health endpoint to verify the deployment is alive
-      - name: Smoke test staging
+      - name: Ensure wallet namespace exists
         run: |
-          sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://staging-api.muigo.com/actuator/health)
-          if [ "$STATUS" != "200" ]; then
-            echo "Smoke test failed with status $STATUS — rolling back"
-            kubectl rollout undo deployment/muigo-wallet -n default
-            exit 1
-          fi
-          echo "Smoke test passed (HTTP $STATUS)"
+          kubectl create namespace wallet --dry-run=client -o yaml | kubectl apply -f -
 
-  # ── Job 5: Deploy to Production (requires manual approval) ─────────────────
-  deploy-production:
-    name: Deploy to Production
+  deploy-eks:
+    name: Deploy to EKS
     runs-on: ubuntu-latest
-    needs: deploy-staging
-    environment:
-      name: production # This environment requires manual approval in GitHub
-      url: https://api.muigo.com
+    needs: [build-and-push, create-namespace]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure kubectl
-        uses: azure/k8s-set-context@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy to production
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Create runtime secrets
+        run: |
+          kubectl create secret generic muigo-wallet-secrets -n wallet \
+            --from-literal=db-url='${{ secrets.DB_URL }}' \
+            --from-literal=db-username='${{ secrets.DB_USERNAME }}' \
+            --from-literal=db-password='${{ secrets.DB_PASSWORD }}' \
+            --from-literal=jwt-secret='${{ secrets.JWT_SECRET }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy wallet service
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
-          kubectl set image deployment/muigo-wallet muigo-wallet=$IMAGE -n default
-          kubectl rollout status deployment/muigo-wallet -n default --timeout=180s
+          cp k8s/deployment.yml /tmp/deployment.yml
+          sed -i "s|image: dmuigo/wallet-api:latest|image: ${IMAGE}|g" /tmp/deployment.yml
+          kubectl apply -f /tmp/deployment.yml
+          kubectl rollout status deployment/muigo-wallet -n wallet --timeout=180s
 
-      - name: Production smoke test
+      - name: Verify deployment
         run: |
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.muigo.com/actuator/health)
-          if [ "$STATUS" != "200" ]; then
-            echo "Production smoke test FAILED (HTTP $STATUS) — rolling back immediately"
-            kubectl rollout undo deployment/muigo-wallet -n default
-            exit 1
-          fi
-          echo "Production deployment successful (HTTP $STATUS)"
+          kubectl get pods -n wallet -l app=muigo-wallet
+          kubectl get svc -n wallet muigo-wallet-svc

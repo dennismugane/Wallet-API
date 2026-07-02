@@ -1,21 +1,19 @@
 # k8s/deployment.yml
 # Apply with: kubectl apply -f k8s/
 #
-# This file wires together all the production-grade K8s concepts:
-# - Deployment with rolling update strategy (zero downtime)
-# - Resource requests/limits (prevents noisy-neighbour issues)
-# - Liveness + Readiness probes (self-healing + safe rollouts)
-# - Secrets via env vars (never bake credentials into images)
-# - HorizontalPodAutoscaler (auto-scale on CPU)
-# - Service (internal load balancing)
-# - Ingress (external HTTPS access)
+# This file wires together the main Kubernetes resources for the wallet service:
+# - Deployment with rolling updates
+# - Service for internal load balancing
+# - Ingress for external access
+# - HPA for autoscaling
+# - Secrets via environment variables
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: muigo-wallet
-  namespace: default
+  namespace: wallet
   labels:
     app: muigo-wallet
     version: "1.0.0"
@@ -27,8 +25,6 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # maxUnavailable: 0 ensures zero downtime.
-      # K8s will not terminate an old pod until a new pod is Ready.
       maxUnavailable: 0
       maxSurge: 1
   template:
@@ -36,17 +32,14 @@ spec:
       labels:
         app: muigo-wallet
       annotations:
-        # Prometheus will auto-discover and scrape this pod
         prometheus.io/scrape: "true"
         prometheus.io/path: "/actuator/prometheus"
         prometheus.io/port: "8080"
     spec:
-      # Security context: run as non-root at the pod level
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
-
       containers:
         - name: muigo-wallet
           image: dmuigo/wallet-api:latest
@@ -54,15 +47,13 @@ spec:
           ports:
             - containerPort: 8080
               name: http
-
-          # Inject secrets from Kubernetes Secrets — never hardcode in manifests.
           env:
-            - name: DB_URL
+            - name: SPRING_DATASOURCE_URL
               valueFrom:
                 secretKeyRef:
                   name: muigo-wallet-secrets
                   key: db-url
-            - name: DB_USERNAME
+            - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: muigo-wallet-secrets
@@ -77,9 +68,6 @@ spec:
                 secretKeyRef:
                   name: muigo-wallet-secrets
                   key: jwt-secret
-
-          # Resource limits: critical for multi-tenant clusters.
-          # Without limits, one pod can starve all others on the node.
           resources:
             requests:
               memory: "256Mi"
@@ -87,9 +75,6 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-
-          # Readiness probe: K8s won't send traffic until this passes.
-          # Prevents sending requests to pods still connecting to the DB.
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -97,9 +82,6 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 10
             failureThreshold: 3
-
-          # Liveness probe: K8s restarts the pod if this fails.
-          # Recovers from deadlocks or corrupted internal state.
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -113,7 +95,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: muigo-wallet-svc
-  namespace: default
+  namespace: wallet
 spec:
   selector:
     app: muigo-wallet
@@ -128,7 +110,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: muigo-wallet-hpa
-  namespace: default
+  namespace: wallet
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -149,36 +131,12 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: muigo-wallet-ingress
-  namespace: default
+  namespace: wallet
   annotations:
     kubernetes.io/ingress.class: nginx
 spec:
   rules:
     - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: muigo-wallet-svc
-                port:
-                  number: 80
-kind: Ingress
-metadata:
-  name: muigo-wallet-ingress
-  namespace: default
-  annotations:
-    # AWS ALB Ingress Controller annotations
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:770185178696:certificate/YOUR-CERT-ARN
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-spec:
-  rules:
-    - host: api.muigo.com
-      http:
         paths:
           - path: /
             pathType: Prefix
