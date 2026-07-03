@@ -26,7 +26,7 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 
 # Security: run as a non-root user.
 # Never run a production container as root.
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk update && apk upgrade --no-cache p11-kit p11-kit-trust && addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 WORKDIR /app
