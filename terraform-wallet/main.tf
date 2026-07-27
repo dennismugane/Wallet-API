@@ -75,3 +75,14 @@ module "rds" {
   db_instance_class   = var.db_instance_class
 }
 
+module "eks" {
+  source               = "./modules/eks"
+  environment          = var.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  eks_node_instance_type = var.eks_node_instance_type
+  eks_desired_node_count = var.eks_desired_node_count
+  eks_min_node_count     = var.eks_min_node_count
+  eks_max_node_count     = var.eks_max_node_count
+}
+

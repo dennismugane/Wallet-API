@@ -35,7 +35,11 @@ resource "aws_subnet" "public" {
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
 
-  tags = { Name = "wallet-${var.environment}-public-${count.index + 1}" }
+  tags = {
+    Name = "wallet-${var.environment}-public-${count.index + 1}"
+    "kubernetes.io/cluster/${var.environment}" = "shared"
+    "kubernetes.io/role/elb" = "1"
+  }
 }
 
 # ── Private Subnets (RDS/EKS) ───────────────────────────────────────────────────
@@ -46,7 +50,11 @@ resource "aws_subnet" "private" {
   cidr_block        = local.private_cidrs[count.index]
   availability_zone = local.azs[count.index]
 
-  tags = { Name = "wallet-${var.environment}-private-${count.index + 1}" }
+  tags = {
+    Name = "wallet-${var.environment}-private-${count.index + 1}"
+    "kubernetes.io/cluster/${var.environment}" = "shared"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
 }
 
 # ── Route Tables ────────────────────────────────────────────────────────────────

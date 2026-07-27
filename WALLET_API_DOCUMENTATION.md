@@ -459,7 +459,7 @@ public interface UserRepository extends JpaRepository<AppUser, String> {
 
 **Custom Methods:**
 - `findByEmail(String)` - Find user by email for login
-- `existsByEmail(String)` - Check if email already registered
+- `existsByEmail(String)` - Check if email already re gistered
 
 ### TransactionRepository.java
 

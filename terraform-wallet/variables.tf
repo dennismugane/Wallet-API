@@ -80,7 +80,7 @@ variable "jwt_secret" {
 variable "eks_node_instance_type" {
   description = "Instance type for EKS worker nodes"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.small"
 }
 
 variable "eks_desired_node_count" {
@@ -92,11 +92,11 @@ variable "eks_desired_node_count" {
 variable "eks_min_node_count" {
   description = "Minimum number of worker nodes"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "eks_max_node_count" {
   description = "Maximum number of worker nodes for auto-scaling"
   type        = number
-  default     = 5
+  default     = 3
 }
