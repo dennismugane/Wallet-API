@@ -273,7 +273,7 @@ AWS Secrets Manager
 
 ## Next Steps
 
-1. Customize variables in `terraform.tfvars` for your environment
+1. Customize variables in `terraform.tfvars` for the environment
 2. Run `terraform plan` to review resources
 3. Run `terraform apply` to create infrastructure
 4. Configure kubectl for EKS access
