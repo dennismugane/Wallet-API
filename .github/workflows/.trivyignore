@@ -1,0 +1,8 @@
+# .trivyignore
+# libexpat - fix not yet available in our base image
+CVE-2026-56131
+CVE-2026-56407
+CVE-2026-56408
+
+# postgresql driver - acceptable risk, no upstream fix
+CVE-2026-42198
