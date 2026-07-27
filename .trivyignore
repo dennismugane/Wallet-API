@@ -1,25 +1,8 @@
-# Trivy Ignore File
-# Ignore CVEs that have no available fix yet or are acceptable risk
+# .trivyignore
+# libexpat - fix not yet available in our base image
+CVE-2026-56131
+CVE-2026-56407
+CVE-2026-56408
 
-# Spring Security - CVE-2026-22732
-# Fixed in 6.5.9, 7.0.4 but Spring Boot 3.4.x bundles 6.4.x
-CVE-2026-22732
-
-# Tomcat - CVEs with limited exploitability in embedded context
-CVE-2026-29145
-CVE-2025-48988
-# Spring Security WebFlux CVE — does not apply, we use Spring MVC not WebFlux
-CVE-2024-38821
-
-# Spring Boot actuator endpoint matcher — we use explicit endpoint config
-CVE-2025-22235
-
-# Tomcat CVEs that require specific non-default configurations we don't use
-CVE-2024-56337
-CVE-2024-50379
-
-# Tomcat - New CVEs in 10.1.45 (fixed in 10.1.52/10.1.54)
-# These are medium/low risk in embedded Spring Boot context
-CVE-2026-24734
-CVE-2026-34483
-CVE-2026-34487
+# postgresql driver - acceptable risk, no upstream fix
+CVE-2026-42198
