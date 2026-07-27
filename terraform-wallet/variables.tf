@@ -56,9 +56,9 @@ variable "db_name" {
 }
 
 variable "db_username" {
-  description = "Master username for the database"
+  description = "Master username for the database (PostgreSQL reserved words like admin are not allowed)"
   type        = string
-  default     = "admin"
+  default     = "wallet_admin"
 }
 
 variable "db_instance_class" {
