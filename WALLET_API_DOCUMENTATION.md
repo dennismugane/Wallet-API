@@ -1,6 +1,6 @@
 # Muigo Wallet API - Complete Source Code Documentation
 
-**Generated:** 2026-07-03  
+**Generated:** 2026-03-03  
 **Project:** muigo-wallet v1.0.0  
 **Language:** Java 21 | **Framework:** Spring Boot 3.5.14  
 **Database:** PostgreSQL | **Build Tool:** Maven
