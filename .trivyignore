@@ -6,3 +6,6 @@ CVE-2026-56408
 
 # postgresql driver - acceptable risk, no upstream fix
 CVE-2026-42198
+CVE-2026-54291
+
+#springboot
