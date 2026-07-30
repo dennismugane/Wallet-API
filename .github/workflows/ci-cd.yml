@@ -202,18 +202,28 @@ jobs:
         id: jwt
         run: |
           JWT_SECRET=$(aws secretsmanager get-secret-value \
-            --secret-id wallet/jwt-secret \
+            --secret-id wallet-prod/jwt-secret \
             --query SecretString --output text)
           echo "::add-mask::$JWT_SECRET"
           echo "value=$JWT_SECRET" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch secrets from AWS Secrets Manager
+        id: secrets
+        run: |
+          JWT_SECRET=$(aws secretsmanager get-secret-value --secret-id wallet-prod/jwt-secret --query SecretString --output text)
+          DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id wallet-prod/db-password --query SecretString --output text)
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$DB_PASSWORD"
+          echo "jwt=$JWT_SECRET" >> "$GITHUB_OUTPUT"
+          echo "db_password=$DB_PASSWORD" >> "$GITHUB_OUTPUT"
 
       - name: Create runtime secrets
         run: |
           kubectl create secret generic muigo-wallet-secrets -n wallet \
             --from-literal=db-url='${{ secrets.DB_URL }}' \
             --from-literal=db-username='${{ secrets.DB_USERNAME }}' \
-            --from-literal=db-password='${{ secrets.DB_PASSWORD }}' \
-            --from-literal=jwt-secret='${{ secrets.JWT_SECRET }}' \
+            --from-literal=db-password='${{ steps.secrets.outputs.db_password }}' \
+            --from-literal=jwt-secret='${{ steps.secrets.outputs.jwt }}' \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy wallet service
