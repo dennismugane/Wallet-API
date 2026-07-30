@@ -5,6 +5,10 @@ variable "db_name" {}
 variable "db_username" {}
 variable "db_password" { sensitive = true }
 variable "db_instance_class" {}
+variable "eks_security_group_id" {
+  description = "Security group ID used by EKS worker nodes"
+  type        = string
+}
 
 # ── DB Subnet Group ────────────────────────────────────────────────────────────
 
@@ -19,14 +23,15 @@ resource "aws_db_subnet_group" "main" {
 
 resource "aws_security_group" "rds" {
   name        = "wallet-${var.environment}-rds-sg"
-  description = "PostgreSQL access from EC2 and EKS only"
+  description = "PostgreSQL access from EKS only"
   vpc_id      = var.vpc_id
 
   ingress {
+    description     = "PostgreSQL from EKS nodes"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    
+    security_groups = [var.eks_security_group_id]
   }
 
   egress {
@@ -36,7 +41,9 @@ resource "aws_security_group" "rds" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "wallet-${var.environment}-rds-sg" }
+  tags = {
+    Name = "wallet-${var.environment}-rds-sg"
+  }
 }
 
 # ── Parameter Group ────────────────────────────────────────────────────────────
