@@ -212,16 +212,36 @@ jobs:
         run: |
           JWT_SECRET=$(aws secretsmanager get-secret-value --secret-id wallet-prod/jwt-secret --query SecretString --output text)
           DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id wallet-prod/db-password --query SecretString --output text)
+          DB_URL=$(aws secretsmanager get-secret-value --secret-id wallet-prod/db-url --query SecretString --output text)
+          DB_USERNAME=$(aws secretsmanager get-secret-value --secret-id wallet-prod/db-username --query SecretString --output text)
           echo "::add-mask::$JWT_SECRET"
           echo "::add-mask::$DB_PASSWORD"
+          echo "::add-mask::$DB_URL"
           echo "jwt=$JWT_SECRET" >> "$GITHUB_OUTPUT"
           echo "db_password=$DB_PASSWORD" >> "$GITHUB_OUTPUT"
+          echo "db_url=$DB_URL" >> "$GITHUB_OUTPUT"
+          echo "db_username=$DB_USERNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Validate secrets before deploy
+        run: |
+          for var in DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET; do
+            value="${!var}"
+            if [ -z "$value" ]; then
+              echo "::error::$var is empty — aborting deploy"
+              exit 1
+            fi
+          done
+        env:
+          DB_URL: ${{ steps.secrets.outputs.db_url }}
+          DB_USERNAME: ${{ steps.secrets.outputs.db_username }}
+          DB_PASSWORD: ${{ steps.secrets.outputs.db_password }}
+          JWT_SECRET: ${{ steps.secrets.outputs.jwt }}
 
       - name: Create runtime secrets
         run: |
           kubectl create secret generic muigo-wallet-secrets -n wallet \
-            --from-literal=db-url='${{ secrets.DB_URL }}' \
-            --from-literal=db-username='${{ secrets.DB_USERNAME }}' \
+            --from-literal=db-url='${{ steps.secrets.outputs.db_url }}' \
+            --from-literal=db-username='${{ steps.secrets.outputs.db_username }}' \
             --from-literal=db-password='${{ steps.secrets.outputs.db_password }}' \
             --from-literal=jwt-secret='${{ steps.secrets.outputs.jwt }}' \
             --dry-run=client -o yaml | kubectl apply -f -
