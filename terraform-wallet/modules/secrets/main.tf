@@ -23,6 +23,12 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 
 # ── JWT Secret ──────────────────────────────────────────────────────────────────
 
+resource "random_password" "jwt_secret" {
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
 resource "aws_secretsmanager_secret" "jwt_secret" {
   name                    = "wallet-${var.environment}/jwt-secret"
   recovery_window_in_days = 7
@@ -31,8 +37,8 @@ resource "aws_secretsmanager_secret" "jwt_secret" {
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secret" {
-  secret_id       = aws_secretsmanager_secret.jwt_secret.id
-  secret_string   = var.jwt_secret
+  secret_id     = aws_secretsmanager_secret.jwt_secret.id
+  secret_string = trim(coalesce(var.jwt_secret, "")) != "" ? var.jwt_secret : random_password.jwt_secret.result
 }
 
 # ── Outputs ─────────────────────────────────────────────────────────────────────

@@ -73,6 +73,11 @@ variable "jwt_secret" {
   description = "JWT secret for authentication (use TF_VAR_jwt_secret env var)"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = trimspace(var.jwt_secret) != ""
+    error_message = "jwt_secret must be set to a non-empty value via TF_VAR_jwt_secret or a tfvars file."
+  }
 }
 
 # ── EKS Configuration ──────────────────────────────────────────────────────────
