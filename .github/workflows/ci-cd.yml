@@ -159,7 +159,7 @@ jobs:
     steps:    
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -198,6 +198,15 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
+      - name: Fetch JWT secret from AWS Secrets Manager
+        id: jwt
+        run: |
+          JWT_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id wallet/jwt-secret \
+            --query SecretString --output text)
+          echo "::add-mask::$JWT_SECRET"
+          echo "value=$JWT_SECRET" >> "$GITHUB_OUTPUT"
+
       - name: Create runtime secrets
         run: |
           kubectl create secret generic muigo-wallet-secrets -n wallet \
@@ -214,6 +223,20 @@ jobs:
           sed -i "s|image: dmuigo/wallet-api:latest|image: ${IMAGE}|g" /tmp/deployment.yml
           kubectl apply -f /tmp/deployment.yml
           kubectl rollout status deployment/muigo-wallet -n wallet --timeout=180s
+
+      - name: Debug failed rollout
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n wallet -l app=muigo-wallet -o wide
+          echo "=== Pod descriptions ==="
+          kubectl describe pods -n wallet -l app=muigo-wallet
+          echo "=== Recent logs ==="
+          kubectl logs -n wallet -l app=muigo-wallet --tail=100 --all-containers=true --prefix=true || true
+          echo "=== Previous container logs (if crashlooping) ==="
+          kubectl logs -n wallet -l app=muigo-wallet --tail=100 --all-containers=true --previous --prefix=true || true
+          echo "=== Namespace events ==="
+          kubectl get events -n wallet --sort-by='.lastTimestamp' | tail -30
 
       - name: Verify deployment
         run: |
