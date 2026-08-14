@@ -23,6 +23,7 @@ module "eks" {
       min_size       = var.eks_min_node_count
       max_size       = var.eks_max_node_count
       desired_size   = var.eks_desired_node_count
+      # Let EKS choose the AMI automatically by not specifying AMI settings
 
       # 20GB disk so Docker images fit
       block_device_mappings = {
