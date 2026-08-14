@@ -23,9 +23,10 @@ module "eks" {
       min_size       = var.eks_min_node_count
       max_size       = var.eks_max_node_count
       desired_size   = var.eks_desired_node_count
-      # Let EKS choose the AMI automatically by not specifying AMI settings
 
-      # 20GB disk so Docker images fit
+      create_launch_template     = false
+      use_custom_launch_template = false
+
       block_device_mappings = {
         xvda = {
           device_name = "/dev/xvda"
