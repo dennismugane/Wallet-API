@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -25,7 +25,8 @@
         <jackson-bom.version>2.18.8</jackson-bom.version>
         <tomcat.version>10.1.55</tomcat.version>
         <spring-security.version>6.5.9</spring-security.version>
-        <spring-framework.version>6.2.11</spring-framework.version>
+        <spring-framework.version>6.2.18</spring-framework.version>
+        <spring-data-bom.version>2025.1.11</spring-data-bom.version>
     </properties>
 
 
@@ -95,7 +96,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
+        <!-- Aspring-data -->
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-commons</artifactId>
+            <version>3.5.12</version>
+        </dependency>
         <!-- Prometheus metrics -->
         <dependency>
             <groupId>io.micrometer</groupId>
