@@ -56,8 +56,6 @@ module "secrets" {
   environment = var.environment
   jwt_secret  = var.jwt_secret
   db_username = var.db_username
-  rds_endpoint = module.rds.rds_endpoint
-  db_name      = var.db_name
 }
 
 module "iam" {
@@ -76,7 +74,7 @@ module "rds" {
   db_username         = var.db_username
   db_password         = module.secrets.db_password
   db_instance_class   = var.db_instance_class
-  eks_security_group_id = module.eks.cluster_security_group_id
+  eks_security_group_id = module.eks.node_security_group_id
 }
 
 module "eks" {
@@ -88,5 +86,21 @@ module "eks" {
   eks_desired_node_count = var.eks_desired_node_count
   eks_min_node_count     = var.eks_min_node_count
   eks_max_node_count     = var.eks_max_node_count
+}
+
+
+# ── DB URL secret — lives here, not inside modules/secrets, ─────────────────
+# because it needs module.rds's output, avoiding a circular dependency
+
+resource "aws_secretsmanager_secret" "db_url" {
+  name                    = "wallet-${var.environment}/db-url"
+  recovery_window_in_days = 0
+
+  tags = { Name = "wallet-${var.environment}-db-url" }
+}
+
+resource "aws_secretsmanager_secret_version" "db_url" {
+  secret_id     = aws_secretsmanager_secret.db_url.id
+  secret_string = "jdbc:postgresql://${module.rds.rds_endpoint}/${var.db_name}"
 }
 
