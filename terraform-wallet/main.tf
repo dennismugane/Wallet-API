@@ -55,6 +55,9 @@ module "secrets" {
   source      = "./modules/secrets"
   environment = var.environment
   jwt_secret  = var.jwt_secret
+  db_username = var.db_username
+  rds_endpoint = module.rds.rds_endpoint
+  db_name      = var.db_name
 }
 
 module "iam" {
