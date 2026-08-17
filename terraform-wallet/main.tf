@@ -74,7 +74,7 @@ module "rds" {
   db_username         = var.db_username
   db_password         = module.secrets.db_password
   db_instance_class   = var.db_instance_class
-  eks_security_group_id = module.eks.node_security_group_id
+   eks_security_group_id = module.eks.cluster_primary_security_group_id
 }
 
 module "eks" {
