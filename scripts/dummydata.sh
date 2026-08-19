@@ -10,7 +10,7 @@
 #
 # CONFIG:
 #   Set BASE_URL below (or export it before running) to point at local vs EKS.
-
+# ── Run the dummydata sequence
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
