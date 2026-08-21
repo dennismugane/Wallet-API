@@ -23,6 +23,7 @@ DEPOSIT_PATH="/api/v1/wallets/deposit"
 WITHDRAW_PATH="/api/v1/wallets/withdraw"
 TRANSFER_PATH="/api/v1/wallets/transfer"
 # GET_WALLET_PATH and TRANSACTIONS_PATH are built per-wallet-id below
+# GET_WALLET_PATH and TRANSACTIONS_PATH are built per-wallet-id below
 # ───────────────────────────────────────────────────────────────────────
 
 # Colors for readable output
