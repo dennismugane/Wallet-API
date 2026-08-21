@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: muigo-wallet
+  namespace: wallet
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: muigo-wallet
+
+  namespaceSelector:
+    matchNames:
+      - wallet
+
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s
+      scrapeTimeout: 10s

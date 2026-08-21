@@ -96,6 +96,8 @@ kind: Service
 metadata:
   name: muigo-wallet-svc
   namespace: wallet
+  labels:
+    app: muigo-wallet
 spec:
   selector:
     app: muigo-wallet
