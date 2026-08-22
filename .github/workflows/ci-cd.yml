@@ -254,6 +254,11 @@ jobs:
           kubectl apply -f /tmp/deployment.yml
           kubectl rollout status deployment/muigo-wallet -n wallet --timeout=180s
 
+      - name: Deploy ServiceMonitor
+        run: |
+          kubectl apply -f k8s/servicemonitor.yml
+
+
       - name: Debug failed rollout
         if: failure()
         run: |
