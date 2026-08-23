@@ -7,6 +7,9 @@ import com.muigo.wallet.models.Transaction.TransactionType;
 import com.muigo.wallet.models.Wallet;
 import com.muigo.wallet.repositories.TransactionRepository;
 import com.muigo.wallet.repositories.WalletRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,19 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-/**
- * Core wallet business logic.
- *
- * Key decisions:
- * - @Transactional on all write methods: if any step fails, the entire
- *   operation rolls back. A transfer that debits the sender but fails
- *   to credit the receiver will be fully rolled back.
- * - Pessimistic locking on transfer: wallets are locked in consistent
- *   ID order (lower ID first) to prevent deadlocks when two concurrent
- *   transfers involve the same two wallets in opposite directions.
- * - Every financial event writes a Transaction record — immutable audit log.
- * - BigDecimal for all monetary arithmetic — exact precision, no float errors.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -37,6 +27,7 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -46,6 +37,9 @@ public class WalletService {
                 .build();
         Wallet saved = walletRepository.save(wallet);
         log.info("Created wallet {} for owner '{}'", saved.getId(), saved.getOwnerName());
+
+        meterRegistry.counter("wallet.created.total").increment();
+
         return toResponse(saved);
     }
 
@@ -67,6 +61,12 @@ public class WalletService {
                 .description(request.getDescription())
                 .build());
 
+        Counter.builder("wallet.transactions.total")
+                .tag("type", "deposit")
+                .tag("status", "success")
+                .register(meterRegistry)
+                .increment();
+
         log.info("Deposited {} to wallet {}. New balance: {}",
                 request.getAmount(), saved.getId(), saved.getBalance());
         return toResponse(saved);
@@ -80,6 +80,11 @@ public class WalletService {
                 .orElseThrow(() -> new WalletNotFoundException(request.getWalletId()));
 
         if (wallet.getBalance().compareTo(request.getAmount()) < 0) {
+            Counter.builder("wallet.transactions.total")
+                    .tag("type", "withdrawal")
+                    .tag("status", "insufficient_funds")
+                    .register(meterRegistry)
+                    .increment();
             throw new InsufficientFundsException(request.getWalletId());
         }
 
@@ -94,28 +99,32 @@ public class WalletService {
                 .description(request.getDescription())
                 .build());
 
+        Counter.builder("wallet.transactions.total")
+                .tag("type", "withdrawal")
+                .tag("status", "success")
+                .register(meterRegistry)
+                .increment();
+
         log.info("Withdrew {} from wallet {}. New balance: {}",
                 request.getAmount(), saved.getId(), saved.getBalance());
         return toResponse(saved);
     }
 
-    /**
-     * Atomic transfer between two wallets.
-     *
-     * Locking strategy: acquire pessimistic write locks on both wallets,
-     * always in lexicographic ID order. This prevents deadlock: if thread A
-     * locks wallet-1 then wallet-2, and thread B also locks wallet-1 first
-     * (because IDs are sorted), they never hold locks in opposite orders.
-     */
     @Transactional
     public TransferResponse transfer(TransferRequest request) {
+        return Timer.builder("wallet.transfer.duration")
+                .description("Time taken to process a wallet transfer")
+                .register(meterRegistry)
+                .record(() -> doTransfer(request));
+    }
+
+    private TransferResponse doTransfer(TransferRequest request) {
         validateAmount(request.getAmount());
 
         if (request.getFromWalletId().equals(request.getToWalletId())) {
             throw new InvalidAmountException("Cannot transfer to the same wallet");
         }
 
-        // Lock wallets in consistent order to prevent deadlock
         String firstId = request.getFromWalletId().compareTo(request.getToWalletId()) < 0
                 ? request.getFromWalletId() : request.getToWalletId();
         String secondId = firstId.equals(request.getFromWalletId())
@@ -130,6 +139,11 @@ public class WalletService {
         Wallet to   = first.getId().equals(request.getToWalletId())   ? first : second;
 
         if (from.getBalance().compareTo(request.getAmount()) < 0) {
+            Counter.builder("wallet.transactions.total")
+                    .tag("type", "transfer")
+                    .tag("status", "insufficient_funds")
+                    .register(meterRegistry)
+                    .increment();
             throw new InsufficientFundsException(from.getId());
         }
 
@@ -152,6 +166,12 @@ public class WalletService {
                 .type(TransactionType.TRANSFER_CREDIT)
                 .amount(request.getAmount()).balanceAfter(to.getBalance())
                 .description(request.getDescription()).build());
+
+        Counter.builder("wallet.transactions.total")
+                .tag("type", "transfer")
+                .tag("status", "success")
+                .register(meterRegistry)
+                .increment();
 
         log.info("Transferred {} from wallet {} to wallet {}. Ref: {}",
                 request.getAmount(), from.getId(), to.getId(), referenceId);
@@ -215,4 +235,4 @@ public class WalletService {
                 .createdAt(t.getCreatedAt())
                 .build();
     }
-}
+} 
