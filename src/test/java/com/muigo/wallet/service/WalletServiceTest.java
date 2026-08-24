@@ -40,6 +40,8 @@ class WalletServiceTest {
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         walletService = new WalletService(walletRepository, transactionRepository, meterRegistry);
+        walletService.registerGauges();
+        walletService.registerSummaries();
 
         wallet = Wallet.builder()
                 .id("wallet-1")

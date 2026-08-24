@@ -16,7 +16,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.DistributionSummary;
+import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -28,6 +30,7 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final MeterRegistry meterRegistry;
+    private DistributionSummary transactionAmountSummary;
 
     @Transactional
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -67,6 +70,8 @@ public class WalletService {
                 .register(meterRegistry)
                 .increment();
 
+        transactionAmountSummary.record(request.getAmount().doubleValue());
+
         log.info("Deposited {} to wallet {}. New balance: {}",
                 request.getAmount(), saved.getId(), saved.getBalance());
         return toResponse(saved);
@@ -104,6 +109,8 @@ public class WalletService {
                 .tag("status", "success")
                 .register(meterRegistry)
                 .increment();
+
+        transactionAmountSummary.record(request.getAmount().doubleValue());
 
         log.info("Withdrew {} from wallet {}. New balance: {}",
                 request.getAmount(), saved.getId(), saved.getBalance());
@@ -172,6 +179,8 @@ public class WalletService {
                 .tag("status", "success")
                 .register(meterRegistry)
                 .increment();
+        
+        transactionAmountSummary.record(request.getAmount().doubleValue());
 
         log.info("Transferred {} from wallet {} to wallet {}. Ref: {}",
                 request.getAmount(), from.getId(), to.getId(), referenceId);
@@ -199,6 +208,27 @@ public class WalletService {
         return transactionRepository
                 .findByWalletIdOrderByCreatedAtDesc(walletId, pageable)
                 .map(this::toTransactionResponse);
+    }
+
+    @PostConstruct
+    public void registerGauges() {
+        Gauge.builder("wallet.total_balance", walletRepository, repo -> {
+                        BigDecimal total = repo.findAll().stream()
+                                .map(Wallet::getBalance)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        return total.doubleValue();
+                })
+                .description("Sum of balances across all wallets")
+                .register(meterRegistry);
+    }
+
+    @PostConstruct
+    public void registerSummaries() {
+    transactionAmountSummary = DistributionSummary.builder("wallet.transaction.amount")
+            .description("Distribution of transaction amounts")
+            .baseUnit("currency_units")
+            .publishPercentileHistogram()   // enables true histogram buckets in Prometheus
+            .register(meterRegistry);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
