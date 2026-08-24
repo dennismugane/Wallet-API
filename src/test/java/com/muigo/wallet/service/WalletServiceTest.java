@@ -6,13 +6,14 @@ import com.muigo.wallet.models.Transaction;
 import com.muigo.wallet.models.Wallet;
 import com.muigo.wallet.repositories.TransactionRepository;
 import com.muigo.wallet.repositories.WalletRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,12 +30,17 @@ class WalletServiceTest {
 
     @Mock WalletRepository walletRepository;
     @Mock TransactionRepository transactionRepository;
-    @InjectMocks WalletService walletService;
+
+    MeterRegistry meterRegistry;
+    WalletService walletService;
 
     private Wallet wallet;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        walletService = new WalletService(walletRepository, transactionRepository, meterRegistry);
+
         wallet = Wallet.builder()
                 .id("wallet-1")
                 .ownerName("Test User")
