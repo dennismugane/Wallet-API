@@ -31,6 +31,7 @@ public class WalletService {
     private final TransactionRepository transactionRepository;
     private final MeterRegistry meterRegistry;
     private DistributionSummary transactionAmountSummary;
+    private final Timer transferTimer;
 
     @Transactional
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -119,10 +120,7 @@ public class WalletService {
 
     @Transactional
     public TransferResponse transfer(TransferRequest request) {
-        return Timer.builder("wallet.transfer.duration")
-                .description("Time taken to process a wallet transfer")
-                .register(meterRegistry)
-                .record(() -> doTransfer(request));
+        return transferTimer.record(() -> doTransfer(request));
     }
 
     private TransferResponse doTransfer(TransferRequest request) {
@@ -229,6 +227,13 @@ public class WalletService {
             .baseUnit("currency_units")
             .publishPercentileHistogram()   // enables true histogram buckets in Prometheus
             .register(meterRegistry);
+    }
+    @PostConstruct
+    public void registerTimers() {
+        transferTimer = Timer.builder("wallet.transfer.duration")
+                .description("Time taken to process a wallet transfer")
+                .publishPercentileHistogram()   // enables the _bucket series
+                .register(meterRegistry);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
