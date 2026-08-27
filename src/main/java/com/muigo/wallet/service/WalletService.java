@@ -31,7 +31,7 @@ public class WalletService {
     private final TransactionRepository transactionRepository;
     private final MeterRegistry meterRegistry;
     private DistributionSummary transactionAmountSummary;
-    private final Timer transferTimer;
+    private Timer transferTimer;
 
     @Transactional
     public WalletResponse createWallet(CreateWalletRequest request) {
