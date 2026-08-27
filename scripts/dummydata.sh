@@ -158,7 +158,6 @@ check_balance() {
 }
 
 # ── Run the dummydata sequence ─────────────────────────────────────────────────
-# ── Run the dummydata sequence
 log "dummydataing against $BASE_URL"
 log "----------------------------------------"
 
