@@ -23,7 +23,7 @@
         <springdoc.version>2.3.0</springdoc.version>
         <postgresql.version>42.7.11</postgresql.version>
         <jackson-bom.version>2.18.8</jackson-bom.version>
-        <tomcat.version>10.1.58</tomcat.version>
+        <tomcat.version>10.1.57</tomcat.version>
         <spring-security.version>6.5.9</spring-security.version>
         <spring-framework.version>6.2.19</spring-framework.version>
     </properties>
