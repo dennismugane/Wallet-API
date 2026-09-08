@@ -8,6 +8,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -69,5 +71,19 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://api.muigo.com/errors/" + type));
         pd.setProperty("timestamp", Instant.now().toString());
         return pd;
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ProblemDetail handleBadCredentials(BadCredentialsException ex) {
+        // Deliberately generic message — never confirm/deny whether the email
+        // exists, to avoid leaking valid usernames to an attacker.
+        return problem(HttpStatus.UNAUTHORIZED, "invalid-credentials",
+                "Invalid email or password.");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, "resource-not-found",
+                "The requested resource was not found.");
     }
 }

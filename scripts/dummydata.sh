@@ -16,7 +16,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 
 # ── Matches AuthController / WaletController exactly ────────────────────
-REGISTER_PATH="/api/auth/registerl"
+REGISTER_PATH="/api/auth/register"
 LOGIN_PATH="/api/auth/login"
 CREATE_WALLET_PATH="/api/v1/wallets"
 DEPOSIT_PATH="/api/v1/wallets/deposit"
