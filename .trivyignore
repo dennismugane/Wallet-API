@@ -16,3 +16,15 @@ CVE-2026-41718
 CVE-2026-41719
 
 #springboot
+
+# tomcat-embed-core CVEs — fix version 10.1.58 announced by Apache but not
+# yet published to Maven Central. 10.1.57 is the latest available build.
+# Verified via mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core
+# Reference: https://github.com/apache/maven/issues/12746 (same publishing
+# gap affected 11.0.25 for weeks after being announced as the fix version)
+# Added: 2026-09-08
+# ACTION: re-check monthly; remove these lines once 10.1.58 (or a later
+# 10.1.x patch) appears on Maven Central, then re-run the scan.
+CVE-2026-65182
+CVE-2026-65905
+CVE-2026-68525
