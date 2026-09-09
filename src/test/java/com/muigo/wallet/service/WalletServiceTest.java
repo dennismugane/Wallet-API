@@ -48,8 +48,6 @@ class WalletServiceTest {
                 meterRegistry
         );
 
-        // sumAllBalances needed for gauge registration
-        when(walletRepository.sumAllBalances()).thenReturn(BigDecimal.ZERO);
         walletService.initMetrics();
 
         wallet = Wallet.builder()
