@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Repository
