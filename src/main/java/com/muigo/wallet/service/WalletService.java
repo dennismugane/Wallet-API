@@ -7,18 +7,15 @@ import com.muigo.wallet.models.Transaction.TransactionType;
 import com.muigo.wallet.models.Wallet;
 import com.muigo.wallet.repositories.TransactionRepository;
 import com.muigo.wallet.repositories.WalletRepository;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.*;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.DistributionSummary;
-import jakarta.annotation.PostConstruct;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -30,8 +27,51 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final MeterRegistry meterRegistry;
+
     private DistributionSummary transactionAmountSummary;
     private Timer transferTimer;
+    private Timer depositTimer;
+    private Timer withdrawTimer;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    @PostConstruct
+    public void initMetrics() {
+
+        // Total system balance — uses SQL SUM, not findAll()
+        Gauge.builder("wallet.total_balance", walletRepository,
+                        repo -> repo.sumAllBalances().doubleValue())
+                .description("Sum of balances across all wallets")
+                .register(meterRegistry);
+
+        // Transaction amount distribution
+        transactionAmountSummary = DistributionSummary.builder("wallet.transaction.amount")
+                .description("Distribution of transaction amounts")
+                .baseUnit("currency_units")
+                .publishPercentileHistogram()
+                .register(meterRegistry);
+
+        // Operation timers
+        transferTimer = Timer.builder("wallet.operation.duration")
+                .tag("operation", "transfer")
+                .description("Time taken to process a wallet transfer")
+                .publishPercentileHistogram()
+                .register(meterRegistry);
+
+        depositTimer = Timer.builder("wallet.operation.duration")
+                .tag("operation", "deposit")
+                .description("Time taken to process a deposit")
+                .publishPercentileHistogram()
+                .register(meterRegistry);
+
+        withdrawTimer = Timer.builder("wallet.operation.duration")
+                .tag("operation", "withdraw")
+                .description("Time taken to process a withdrawal")
+                .publishPercentileHistogram()
+                .register(meterRegistry);
+    }
+
+    // ── Operations ───────────────────────────────────────────────────────────
 
     @Transactional
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -49,10 +89,17 @@ public class WalletService {
 
     @Transactional
     public WalletResponse deposit(DepositRequest request) {
+        return depositTimer.record(() -> doDeposit(request));
+    }
+
+    private WalletResponse doDeposit(DepositRequest request) {
         validateAmount(request.getAmount());
 
         Wallet wallet = walletRepository.findById(request.getWalletId())
-                .orElseThrow(() -> new WalletNotFoundException(request.getWalletId()));
+                .orElseThrow(() -> {
+                    recordError("wallet_not_found", "deposit");
+                    return new WalletNotFoundException(request.getWalletId());
+                });
 
         wallet.setBalance(wallet.getBalance().add(request.getAmount()));
         Wallet saved = walletRepository.save(wallet);
@@ -65,12 +112,7 @@ public class WalletService {
                 .description(request.getDescription())
                 .build());
 
-        Counter.builder("wallet.transactions.total")
-                .tag("type", "deposit")
-                .tag("status", "success")
-                .register(meterRegistry)
-                .increment();
-
+        recordSuccess("deposit");
         transactionAmountSummary.record(request.getAmount().doubleValue());
 
         log.info("Deposited {} to wallet {}. New balance: {}",
@@ -80,17 +122,20 @@ public class WalletService {
 
     @Transactional
     public WalletResponse withdraw(WithdrawRequest request) {
+        return withdrawTimer.record(() -> doWithdraw(request));
+    }
+
+    private WalletResponse doWithdraw(WithdrawRequest request) {
         validateAmount(request.getAmount());
 
         Wallet wallet = walletRepository.findById(request.getWalletId())
-                .orElseThrow(() -> new WalletNotFoundException(request.getWalletId()));
+                .orElseThrow(() -> {
+                    recordError("wallet_not_found", "withdrawal");
+                    return new WalletNotFoundException(request.getWalletId());
+                });
 
         if (wallet.getBalance().compareTo(request.getAmount()) < 0) {
-            Counter.builder("wallet.transactions.total")
-                    .tag("type", "withdrawal")
-                    .tag("status", "insufficient_funds")
-                    .register(meterRegistry)
-                    .increment();
+            recordInsufficientFunds("withdrawal");
             throw new InsufficientFundsException(request.getWalletId());
         }
 
@@ -105,12 +150,7 @@ public class WalletService {
                 .description(request.getDescription())
                 .build());
 
-        Counter.builder("wallet.transactions.total")
-                .tag("type", "withdrawal")
-                .tag("status", "success")
-                .register(meterRegistry)
-                .increment();
-
+        recordSuccess("withdrawal");
         transactionAmountSummary.record(request.getAmount().doubleValue());
 
         log.info("Withdrew {} from wallet {}. New balance: {}",
@@ -127,6 +167,7 @@ public class WalletService {
         validateAmount(request.getAmount());
 
         if (request.getFromWalletId().equals(request.getToWalletId())) {
+            recordError("self_transfer", "transfer");
             throw new InvalidAmountException("Cannot transfer to the same wallet");
         }
 
@@ -136,19 +177,21 @@ public class WalletService {
                 ? request.getToWalletId() : request.getFromWalletId();
 
         Wallet first = walletRepository.findByIdWithLock(firstId)
-                .orElseThrow(() -> new WalletNotFoundException(firstId));
+                .orElseThrow(() -> {
+                    recordError("wallet_not_found", "transfer");
+                    return new WalletNotFoundException(firstId);
+                });
         Wallet second = walletRepository.findByIdWithLock(secondId)
-                .orElseThrow(() -> new WalletNotFoundException(secondId));
+                .orElseThrow(() -> {
+                    recordError("wallet_not_found", "transfer");
+                    return new WalletNotFoundException(secondId);
+                });
 
         Wallet from = first.getId().equals(request.getFromWalletId()) ? first : second;
         Wallet to   = first.getId().equals(request.getToWalletId())   ? first : second;
 
         if (from.getBalance().compareTo(request.getAmount()) < 0) {
-            Counter.builder("wallet.transactions.total")
-                    .tag("type", "transfer")
-                    .tag("status", "insufficient_funds")
-                    .register(meterRegistry)
-                    .increment();
+            recordInsufficientFunds("transfer");
             throw new InsufficientFundsException(from.getId());
         }
 
@@ -172,12 +215,7 @@ public class WalletService {
                 .amount(request.getAmount()).balanceAfter(to.getBalance())
                 .description(request.getDescription()).build());
 
-        Counter.builder("wallet.transactions.total")
-                .tag("type", "transfer")
-                .tag("status", "success")
-                .register(meterRegistry)
-                .increment();
-        
+        recordSuccess("transfer");
         transactionAmountSummary.record(request.getAmount().doubleValue());
 
         log.info("Transferred {} from wallet {} to wallet {}. Ref: {}",
@@ -208,35 +246,39 @@ public class WalletService {
                 .map(this::toTransactionResponse);
     }
 
-    @PostConstruct
-    public void registerGauges() {
-        Gauge.builder("wallet.total_balance", walletRepository, repo -> {
-                        BigDecimal total = repo.findAll().stream()
-                                .map(Wallet::getBalance)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        return total.doubleValue();
-                })
-                .description("Sum of balances across all wallets")
-                .register(meterRegistry);
+    // ── Metric Helpers ───────────────────────────────────────────────────────
+
+    private void recordSuccess(String type) {
+        Counter.builder("wallet.transactions.total")
+                .tag("type", type)
+                .tag("status", "success")
+                .register(meterRegistry)
+                .increment();
     }
 
-    @PostConstruct
-    public void registerSummaries() {
-    transactionAmountSummary = DistributionSummary.builder("wallet.transaction.amount")
-            .description("Distribution of transaction amounts")
-            .baseUnit("currency_units")
-            .publishPercentileHistogram()   // enables true histogram buckets in Prometheus
-            .register(meterRegistry);
-    }
-    @PostConstruct
-    public void registerTimers() {
-        transferTimer = Timer.builder("wallet.transfer.duration")
-                .description("Time taken to process a wallet transfer")
-                .publishPercentileHistogram()   // enables the _bucket series
-                .register(meterRegistry);
+    private void recordInsufficientFunds(String type) {
+        Counter.builder("wallet.transactions.total")
+                .tag("type", type)
+                .tag("status", "insufficient_funds")
+                .register(meterRegistry)
+                .increment();
+
+        Counter.builder("wallet.errors.total")
+                .tag("type", "insufficient_funds")
+                .tag("operation", type)
+                .register(meterRegistry)
+                .increment();
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    private void recordError(String errorType, String operation) {
+        Counter.builder("wallet.errors.total")
+                .tag("type", errorType)
+                .tag("operation", operation)
+                .register(meterRegistry)
+                .increment();
+    }
+
+    // ── Domain Helpers ───────────────────────────────────────────────────────
 
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -270,4 +312,4 @@ public class WalletService {
                 .createdAt(t.getCreatedAt())
                 .build();
     }
-} 
+}
